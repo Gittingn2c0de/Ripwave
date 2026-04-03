@@ -145,9 +145,8 @@ MIT. Build whatever you want. Credit appreciated, not required.
 
 ## Built by
 
-Maël — independent builder, Nairobi  
-Greenrobe Studio — [greenrobe.studio](https://greenrobe.studio)  
-Chappy — [chappy.so](https://chappy.so)
+Lonlon — independent builder, Germany for now lol.  
+
 
 ---
 
