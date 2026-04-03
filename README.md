@@ -1,4 +1,4 @@
-# ripple
+# ripwave
 
 **A massively parallel agent coordination system where computation is its own visualization.**
 
@@ -9,7 +9,7 @@ Open sourced because good ideas should spread.
 
 ## What is this
 
-Ripple is a particle agent system built on a simple premise:
+Ripwave is a particle agent system built on a simple premise:
 
 > Each pixel is an agent. Agents coordinate locally. Global behavior emerges.
 
