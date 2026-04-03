@@ -2,7 +2,7 @@
 
 **A massively parallel agent coordination system where computation is its own visualization.**
 
-Built by [Maël](https://github.com/psychcamel) / Greenrobe Studio.  
+Built by [Lonlon](https://github.com/Gittingn2c0de) / 
 Open sourced because good ideas should spread.
 
 ---
@@ -29,7 +29,7 @@ The visual output isn't a representation of what's happening. **It is what's hap
 
 Because the right move with a coordination primitive is to let people build on it — not hoard it.
 
-If you build something with this, tell us.
+If you build something with this lmk would be nice. I'm @psychcamel on X.
 
 ---
 
