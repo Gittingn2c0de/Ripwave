@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PARTICLE AGENT SYSTEM — RIPPLE MEMORY ARCHITECTURE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Bebas+Neue&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --lime: #c8ff00;
+  --cyan: #00ffcc;
+  --void: #050508;
+  --shell-color: #7b2fff;
+  --mid-color: #00ccff;
+  --core-color: #ffffff;
+  --ripple-color: #fff8e0;
+}
+
+body {
+  background: var(--void);
+  color: #fff;
+  font-family: 'Share Tech Mono', monospace;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  cursor: crosshair;
+}
+
+canvas {
+  position: fixed;
+  top: 0; left: 0;
+  display: block;
+}
+
+/* ── HUD ── */
+#hud {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: linear-gradient(180deg, rgba(5,5,8,0.95) 0%, transparent 100%);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.hud-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.sys-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 18px;
+  letter-spacing: 4px;
+  color: var(--lime);
+}
+
+.hud-stat {
+  font-size: 9px;
+  color: #333;
+  letter-spacing: 2px;
+  line-height: 1.6;
+}
+.hud-stat span { color: var(--lime); }
+
+.hud-right {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.role-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  color: #444;
+  letter-spacing: 1px;
+}
+.role-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+}
+
+/* ── BOTTOM CONTROLS ── */
+#controls {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(0deg, rgba(5,5,8,0.95) 0%, transparent 100%);
+  z-index: 10;
+}
+
+.btn {
+  padding: 6px 16px;
+  border: 1px solid #1a1a1a;
+  background: transparent;
+  color: #555;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all 0.1s;
+  text-transform: uppercase;
+  pointer-events: all;
+}
+.btn:hover { border-color: var(--lime); color: var(--lime); }
+.btn.active { border-color: var(--lime); color: var(--void); background: var(--lime); }
+
+/* ── MEMORY LOG ── */
+#memlog {
+  position: fixed;
+  right: 16px;
+  top: 60px;
+  width: 180px;
+  z-index: 10;
+  pointer-events: none;
+}
+.memlog-title {
+  font-size: 8px;
+  color: #333;
+  letter-spacing: 3px;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.memlog-entry {
+  font-size: 8px;
+  color: #7b2fff;
+  letter-spacing: 1px;
+  line-height: 1.8;
+  opacity: 0;
+  transform: translateX(10px);
+  transition: all 0.3s;
+}
+.memlog-entry.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ── TASK COUNTER ── */
+#taskbar {
+  position: fixed;
+  left: 16px;
+  top: 60px;
+  z-index: 10;
+  pointer-events: none;
+}
+.task-row {
+  font-size: 8px;
+  color: #222;
+  letter-spacing: 2px;
+  line-height: 2;
+}
+.task-row span { transition: color 0.3s; }
+
+/* ── SCAN LINE OVERLAY ── */
+#scanlines {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 5;
+}
+
+#vignette {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.7) 100%);
+  pointer-events: none;
+  z-index: 4;
+}
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div id="scanlines"></div>
+<div id="vignette"></div>
+
+<div id="hud">
+  <div class="hud-left">
+    <div class="sys-name">PAS — RIPPLE MEMORY</div>
+    <div class="hud-stat">AGENTS<br><span id="statAgents">0</span></div>
+    <div class="hud-stat">FPS<br><span id="statFPS">0</span></div>
+    <div class="hud-stat">TASKS<br><span id="statTasks">0</span></div>
+    <div class="hud-stat">MEMORY<br><span id="statMemory">0%</span></div>
+    <div class="hud-stat">RIPPLES<br><span id="statRipples">0</span></div>
+  </div>
+  <div class="hud-right">
+    <div class="role-indicator">
+      <div class="role-dot" style="background:#fff;box-shadow:0 0 4px #fff"></div>
+      CORE
+    </div>
+    <div class="role-indicator">
+      <div class="role-dot" style="background:#00ccff;box-shadow:0 0 4px #00ccff"></div>
+      MID
+    </div>
+    <div class="role-indicator">
+      <div class="role-dot" style="background:#7b2fff;box-shadow:0 0 4px #7b2fff"></div>
+      SHELL
+    </div>
+    <div class="role-indicator">
+      <div class="role-dot" style="background:#fff8e0;box-shadow:0 0 4px #fff8e0"></div>
+      RIPPLE
+    </div>
+  </div>
+</div>
+
+<div id="taskbar">
+  <div class="memlog-title">TASK STREAM</div>
+  <div id="taskEntries"></div>
+</div>
+
+<div id="memlog">
+  <div class="memlog-title">SHELL MEMORY</div>
+  <div id="memEntries"></div>
+</div>
+
+<div id="controls">
+  <button class="btn" onclick="spawnTask()">SPAWN TASK</button>
+  <button class="btn" onclick="spawnTaskBurst()">BURST ×5</button>
+  <button class="btn" id="btnAuto" onclick="toggleAuto()">AUTO ON</button>
+  <button class="btn" onclick="disrupt()">DISRUPT</button>
+  <button class="btn" onclick="resetSim()">RESET</button>
+  <button class="btn" id="btnPause" onclick="togglePause()">PAUSE</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// PARTICLE AGENT SYSTEM — RIPPLE MEMORY ARCHITECTURE
+// Math locked: selective forgetting, constructive interference,
+// role-by-locus, utility-weighted memory
+// ═══════════════════════════════════════════════════════════════
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let W, H;
+const CELL = 5;
+let cols, rows;
+
+// Parameters
+const R_CORE = 10;
+const R_MID  = 28;
+const LAMBDA  = 0.08;   // spatial decay
+const MU      = 0.025;  // temporal decay
+const OMEGA   = 0.12;   // ripple oscillation
+const K       = 0.18;   // wave number
+const ALPHA   = 0.12;   // learning rate
+const THETA_WRITE  = 0.12; // ripple intensity to trigger memory write
+const THETA_ROUTE  = 0.38; // memory threshold for experienced routing
+const DELTA_FAST   = 0.009; // prune rate for low-utility memory
+const DELTA_SLOW   = 0.00004; // decay rate for high-utility memory
+const THETA_FORGET = 0.25; // utility threshold for forgetting mode
+
+// Task registry
+let tasks = [];
+let taskIdCounter = 0;
+let totalTasksCompleted = 0;
+
+// Ripples
+let ripples = [];
+
+// Agent grid
+let agents = [];
+
+// Sim state
+let paused = false;
+let autoSpawn = true;
+let autoTimer = 0;
+let t = 0;
+let frameCount = 0;
+let fpsTimer = 0;
+let lastFPS = 0;
+
+// Memory log
+let memLogEntries = [];
+let taskLogEntries = [];
+
+// ── TASK COLORS ──────────────────────────────────────────────────
+const TASK_COLORS = [
+  [1.0, 0.9, 0.0],   // yellow
+  [0.0, 1.0, 0.8],   // cyan
+  [1.0, 0.3, 0.1],   // orange
+  [0.5, 1.0, 0.2],   // lime
+  [1.0, 0.1, 0.6],   // magenta
+  [0.3, 0.5, 1.0],   // blue
+  [1.0, 0.6, 0.0],   // amber
+  [0.0, 0.8, 0.4],   // green
+];
+
+function getTaskColor(taskId) {
+  return TASK_COLORS[taskId % TASK_COLORS.length];
+}
+
+// ── AGENT FACTORY ─────────────────────────────────────────────────
+function makeAgent(i, j) {
+  return {
+    x: i, y: j,
+    role: 2,          // 0=CORE, 1=MID, 2=SHELL
+    energy: 0.6 + Math.random() * 0.4,
+    memory: 0,
+    memoryUtility: 0,
+    memoryAccess: 0,   // frame of last access
+    memoryOutcome: 0,  // success rate of tasks using this memory
+    taskLoad: 0,
+    taskId: -1,
+    signal: 0,
+    rippleIntensity: 0,
+    rippleTaskId: -1,
+    // Visual
+    baseGlow: Math.random() * 0.015,
+    flickerPhase: Math.random() * Math.PI * 2,
+  };
+}
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cols = Math.floor(W / CELL);
+  rows = Math.floor(H / CELL);
+  initSim();
+}
+
+function initSim() {
+  agents = [];
+  for (let j = 0; j < rows; j++) {
+    agents.push(new Array(cols));
+    for (let i = 0; i < cols; i++) {
+      agents[j][i] = makeAgent(i, j);
+    }
+  }
+  tasks = [];
+  ripples = [];
+  t = 0;
+  totalTasksCompleted = 0;
+  document.getElementById('statAgents').textContent = (cols * rows).toLocaleString();
+}
+
+// ── TASK SYSTEM ───────────────────────────────────────────────────
+function spawnTask(ix, iy) {
+  const x = ix !== undefined ? ix : Math.floor(cols * 0.15 + Math.random() * cols * 0.7);
+  const y = iy !== undefined ? iy : Math.floor(rows * 0.15 + Math.random() * rows * 0.7);
+  const id = taskIdCounter++;
+  const color = getTaskColor(id);
+  const duration = 120 + Math.floor(Math.random() * 180);
+
+  tasks.push({ id, x, y, color, life: duration, maxLife: duration, completed: false });
+
+  // Check if shell memory can route this
+  let bestScore = 0;
+  let bestShell = null;
+  for (let j = 0; j < rows; j += 3) {
+    for (let i = 0; i < cols; i += 3) {
+      const a = agents[j][i];
+      if (a.role === 2 && a.memory > 0.2) {
+        const dist = Math.sqrt((i - x)**2 + (j - y)**2);
+        const score = a.memory * a.memoryOutcome * (1 / (1 + dist * 0.01));
+        if (score > bestScore) { bestScore = score; bestShell = a; }
+      }
+    }
+  }
+
+  const experienced = bestScore > THETA_ROUTE;
+  addTaskLog(`T${id} ${experienced ? '⚡ROUTED' : 'NEW'} [${x},${y}]`, color);
+  return id;
+}
+
+function spawnTaskBurst() {
+  for (let i = 0; i < 5; i++) {
+    setTimeout(() => spawnTask(), i * 120);
+  }
+}
+
+// ── RIPPLE SYSTEM ─────────────────────────────────────────────────
+function emitRipple(x, y, taskId, intensity) {
+  ripples.push({ x, y, taskId, intensity, age: 0, maxAge: 200 });
+}
+
+function getRippleIntensity(rx, ry, age, ox, oy) {
+  const d = Math.sqrt((ox - rx)**2 + (oy - ry)**2);
+  const I0 = 1.0;
+  return I0 * Math.exp(-LAMBDA * d) * Math.exp(-MU * age) *
+         Math.max(0, Math.cos(OMEGA * age - K * d));
+}
+
+// ── ROLE DETERMINATION ────────────────────────────────────────────
+function updateRoles() {
+  // Reset all to SHELL
+  for (let j = 0; j < rows; j++)
+    for (let i = 0; i < cols; i++)
+      agents[j][i].role = 2;
+
+  // Set roles based on proximity to active tasks
+  for (const task of tasks) {
+    const tx = task.x, ty = task.y;
+    const x0 = Math.max(0, tx - R_MID - 2);
+    const x1 = Math.min(cols - 1, tx + R_MID + 2);
+    const y0 = Math.max(0, ty - R_MID - 2);
+    const y1 = Math.min(rows - 1, ty + R_MID + 2);
+
+    for (let j = y0; j <= y1; j++) {
+      for (let i = x0; i <= x1; i++) {
+        const d = Math.sqrt((i - tx)**2 + (j - ty)**2);
+        const a = agents[j][i];
+        if (d < R_CORE && a.role > 0) a.role = 0;
+        else if (d < R_MID && a.role > 1) a.role = 1;
+      }
+    }
+  }
+}
+
+// ── AGENT UPDATE ──────────────────────────────────────────────────
+function updateAgents() {
+  // Reset ripple intensities
+  for (let j = 0; j < rows; j++)
+    for (let i = 0; i < cols; i++) {
+      agents[j][i].rippleIntensity = 0;
+      agents[j][i].rippleTaskId = -1;
+    }
+
+  // Apply ripples to agents
+  for (const rip of ripples) {
+    const rx = rip.x, ry = rip.y;
+    const maxD = Math.min(cols, rows);
+    // Only process agents in range
+    const scanR = Math.min(maxD, rip.age * 1.5 + 20);
+    const x0 = Math.max(0, Math.floor(rx - scanR));
+    const x1 = Math.min(cols - 1, Math.ceil(rx + scanR));
+    const y0 = Math.max(0, Math.floor(ry - scanR));
+    const y1 = Math.min(rows - 1, Math.ceil(ry + scanR));
+
+    for (let j = y0; j <= y1; j++) {
+      for (let i = x0; i <= x1; i++) {
+        const intensity = getRippleIntensity(rx, ry, rip.age, i, j);
+        if (intensity > 0.01) {
+          const a = agents[j][i];
+          // Constructive interference — intensities add, task IDs carried
+          if (intensity > a.rippleIntensity) {
+            a.rippleIntensity = Math.min(1, a.rippleIntensity + intensity - a.rippleIntensity * intensity);
+            a.rippleTaskId = rip.taskId;
+          } else {
+            a.rippleIntensity = Math.min(1, a.rippleIntensity + intensity * 0.3);
+          }
+        }
+      }
+    }
+  }
+
+  // Update each agent by role
+  for (let j = 0; j < rows; j++) {
+    for (let i = 0; i < cols; i++) {
+      const a = agents[j][i];
+
+      if (a.role === 0) updateCore(a, i, j);
+      else if (a.role === 1) updateMid(a, i, j);
+      else updateShell(a, i, j);
+
+      // Passive energy recovery varies by role
+      const recovery = a.role === 0 ? 0.002 : a.role === 1 ? 0.004 : 0.005;
+      a.energy = Math.min(1, a.energy + recovery);
+      a.energy = Math.max(0, a.energy);
+    }
+  }
+}
+
+function updateCore(a, i, j) {
+  // Find nearest task
+  let nearestTask = null;
+  let nearestDist = Infinity;
+  for (const task of tasks) {
+    const d = Math.sqrt((i - task.x)**2 + (j - task.y)**2);
+    if (d < nearestDist) { nearestDist = d; nearestTask = task; }
+  }
+
+  if (nearestTask && nearestDist < R_CORE) {
+    a.taskLoad = Math.min(1, a.taskLoad + 0.08);
+    a.taskId = nearestTask.id;
+    a.energy -= a.taskLoad * 0.006;
+
+    // Emit ripple on task completion pulses
+    if (t % 25 === 0 && a.energy > 0.3) {
+      emitRipple(i, j, nearestTask.id, a.taskLoad * a.energy);
+    }
+  } else {
+    a.taskLoad = Math.max(0, a.taskLoad - 0.05);
+    a.taskId = -1;
+  }
+}
+
+function updateMid(a, i, j) {
+  // MID agents: pass signals, coordinate between CORE and SHELL
+  a.taskLoad *= 0.92;
+  a.signal = a.rippleIntensity * 0.7;
+
+  // Pass task load from neighbors
+  let coreSignal = 0;
+  const ni = Math.min(cols-1, i+1), pi = Math.max(0, i-1);
+  const nj = Math.min(rows-1, j+1), pj = Math.max(0, j-1);
+  for (const [ni2, nj2] of [[ni,j],[pi,j],[i,nj],[i,pj]]) {
+    const n = agents[nj2][ni2];
+    if (n.role === 0) coreSignal = Math.max(coreSignal, n.taskLoad);
+  }
+  a.taskLoad = Math.max(a.taskLoad, coreSignal * 0.6);
+  a.energy -= a.signal * 0.001;
+}
+
+function updateShell(a, i, j) {
+  // SHELL agents: receive ripples, write memory, learn
+  const rip = a.rippleIntensity;
+
+  if (rip > THETA_WRITE) {
+    // Write to memory — logistic update
+    a.memory += ALPHA * rip * (1 - a.memory);
+    a.memoryAccess = t;
+
+    // Outcome improves with repeated successful writes
+    a.memoryOutcome = Math.min(1, a.memoryOutcome + 0.02);
+
+    // Log significant memory writes
+    if (a.memory > 0.7 && Math.random() < 0.002) {
+      addMemLog(`SHELL[${i},${j}] MEM:${(a.memory*100).toFixed(0)}%`, a.rippleTaskId);
+    }
+  }
+
+  // Selective forgetting based on utility
+  const recency = Math.max(0, 1 - (t - a.memoryAccess) * 0.0005);
+  const frequency = a.memoryOutcome;
+  const utility = 0.4 * frequency + 0.4 * recency + 0.2 * a.memoryOutcome;
+
+  if (utility < THETA_FORGET) {
+    a.memory = Math.max(0, a.memory - DELTA_FAST * a.memory);
+  } else {
+    a.memory = Math.max(0, a.memory - DELTA_SLOW * a.memory);
+  }
+
+  a.taskLoad *= 0.98;
+}
+
+// ── TASK LIFECYCLE ────────────────────────────────────────────────
+function updateTasks() {
+  for (const task of tasks) {
+    task.life--;
+    if (task.life <= 0) {
+      task.completed = true;
+      totalTasksCompleted++;
+
+      // Update shell memory outcome for agents near task
+      for (let j = Math.max(0, task.y - R_MID*2); j < Math.min(rows, task.y + R_MID*2); j++) {
+        for (let i = Math.max(0, task.x - R_MID*2); i < Math.min(cols, task.x + R_MID*2); i++) {
+          const a = agents[j][i];
+          if (a.role === 2 && a.memory > 0.1) {
+            a.memoryOutcome = Math.min(1, a.memoryOutcome + 0.05);
+          }
+        }
+      }
+      // Final big ripple
+      emitRipple(task.x, task.y, task.id, 1.0);
+    }
+  }
+  tasks = tasks.filter(t => !t.completed);
+
+  // Advance ripples
+  for (const rip of ripples) rip.age++;
+  ripples = ripples.filter(r => r.age < r.maxAge);
+}
+
+// ── RENDER ────────────────────────────────────────────────────────
+function render() {
+  // Use pixel manipulation for performance
+  const imgData = ctx.createImageData(W, H);
+  const d32 = new Uint32Array(imgData.data.buffer);
+
+  for (let j = 0; j < rows; j++) {
+    for (let i = 0; i < cols; i++) {
+      const a = agents[j][i];
+      let r = 0, g = 0, b = 0;
+
+      const flicker = a.baseGlow * (0.5 + 0.5 * Math.sin(t * 0.05 + a.flickerPhase));
+
+      if (a.role === 0) {
+        // CORE — white hot, task-colored tint
+        const taskColor = a.taskId >= 0 ? getTaskColor(a.taskId) : [1,1,1];
+        const intensity = a.taskLoad * a.energy;
+        r = (0.6 + 0.4 * taskColor[0]) * intensity + flicker;
+        g = (0.6 + 0.4 * taskColor[1]) * intensity + flicker;
+        b = (0.6 + 0.4 * taskColor[2]) * intensity + flicker;
+        // Core bloom
+        r += 0.15; g += 0.15; b += 0.15;
+      } else if (a.role === 1) {
+        // MID — cyan signal carrier
+        const sig = a.signal * 0.8 + a.taskLoad * 0.4;
+        r = sig * 0.05 + flicker;
+        g = sig * 0.85;
+        b = sig * 1.0;
+      } else {
+        // SHELL — deep purple memory field
+        const memGlow = a.memory * 0.6;
+        const ripGlow = a.rippleIntensity * 0.5;
+        const taskC = a.rippleTaskId >= 0 ? getTaskColor(a.rippleTaskId) : [0.48, 0.18, 1.0];
+        r = memGlow * 0.48 + ripGlow * taskC[0] * 0.7 + flicker * 0.5;
+        g = memGlow * 0.1  + ripGlow * taskC[1] * 0.5 + flicker * 0.3;
+        b = memGlow * 1.0  + ripGlow * taskC[2] * 0.8 + flicker * 0.5;
+      }
+
+      // Ripple overlay — bright traveling ring
+      if (a.rippleIntensity > 0.08) {
+        const rip = a.rippleIntensity;
+        r = Math.max(r, rip * 0.95);
+        g = Math.max(g, rip * 0.92);
+        b = Math.max(b, rip * 0.75);
+      }
+
+      // Clamp and quantize
+      const ri = Math.min(255, Math.floor(Math.max(0, r) * 255));
+      const gi = Math.min(255, Math.floor(Math.max(0, g) * 255));
+      const bi = Math.min(255, Math.floor(Math.max(0, b) * 255));
+
+      const color = (255 << 24) | (bi << 16) | (gi << 8) | ri;
+
+      // Fill CELL block
+      for (let py = 0; py < CELL; py++) {
+        for (let px = 0; px < CELL; px++) {
+          const px_ = i * CELL + px;
+          const py_ = j * CELL + py;
+          if (px_ < W && py_ < H) d32[py_ * W + px_] = color;
+        }
+      }
+    }
+  }
+
+  ctx.putImageData(imgData, 0, 0);
+
+  // Draw task centers
+  for (const task of tasks) {
+    const cx = task.x * CELL + CELL/2;
+    const cy = task.y * CELL + CELL/2;
+    const progress = 1 - task.life / task.maxLife;
+    const [tr, tg, tb] = task.color;
+
+    // Pulsing ring
+    const pulse = 0.5 + 0.5 * Math.sin(t * 0.15);
+    ctx.strokeStyle = `rgba(${Math.floor(tr*255)},${Math.floor(tg*255)},${Math.floor(tb*255)},${0.4 + pulse*0.3})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R_CORE * CELL * 0.7 * (0.9 + pulse * 0.1), 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Progress arc
+    ctx.strokeStyle = `rgba(${Math.floor(tr*255)},${Math.floor(tg*255)},${Math.floor(tb*255)},0.9)`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R_CORE * CELL * 0.5, -Math.PI/2, -Math.PI/2 + progress * Math.PI * 2);
+    ctx.stroke();
+
+    // Center dot
+    ctx.fillStyle = `rgba(${Math.floor(tr*255)},${Math.floor(tg*255)},${Math.floor(tb*255)},0.9)`;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ── LOG HELPERS ───────────────────────────────────────────────────
+function addMemLog(text, taskId) {
+  const el = document.getElementById('memEntries');
+  const div = document.createElement('div');
+  div.className = 'memlog-entry';
+  const c = taskId >= 0 ? getTaskColor(taskId) : [0.48,0.18,1.0];
+  div.style.color = `rgb(${Math.floor(c[0]*255)},${Math.floor(c[1]*255)},${Math.floor(c[2]*255)})`;
+  div.textContent = text;
+  el.insertBefore(div, el.firstChild);
+  setTimeout(() => div.classList.add('visible'), 10);
+  while (el.children.length > 8) el.removeChild(el.lastChild);
+}
+
+function addTaskLog(text, color) {
+  const el = document.getElementById('taskEntries');
+  const div = document.createElement('div');
+  div.className = 'task-row';
+  const [r,g,b] = color;
+  div.innerHTML = `<span style="color:rgb(${Math.floor(r*255)},${Math.floor(g*255)},${Math.floor(b*255)})">${text}</span>`;
+  el.insertBefore(div, el.firstChild);
+  while (el.children.length > 10) el.removeChild(el.lastChild);
+}
+
+// ── HUD UPDATE ────────────────────────────────────────────────────
+function updateHUD() {
+  document.getElementById('statTasks').textContent = tasks.length;
+  document.getElementById('statRipples').textContent = ripples.length;
+
+  // Calculate average memory
+  let totalMem = 0, shellCount = 0;
+  for (let j = 0; j < rows; j += 4) {
+    for (let i = 0; i < cols; i += 4) {
+      if (agents[j][i].role === 2) {
+        totalMem += agents[j][i].memory;
+        shellCount++;
+      }
+    }
+  }
+  const avgMem = shellCount > 0 ? (totalMem / shellCount * 100).toFixed(1) : 0;
+  document.getElementById('statMemory').textContent = avgMem + '%';
+}
+
+// ── CONTROLS ──────────────────────────────────────────────────────
+function toggleAuto() {
+  autoSpawn = !autoSpawn;
+  document.getElementById('btnAuto').textContent = autoSpawn ? 'AUTO ON' : 'AUTO OFF';
+  document.getElementById('btnAuto').classList.toggle('active', autoSpawn);
+}
+
+function disrupt() {
+  const cx = Math.floor(Math.random() * cols);
+  const cy = Math.floor(Math.random() * rows);
+  const r = 15;
+  for (let dj = -r; dj <= r; dj++) {
+    for (let di = -r; di <= r; di++) {
+      if (di*di + dj*dj > r*r) continue;
+      const ni = (cx+di+cols) % cols;
+      const nj = (cy+dj+rows) % rows;
+      const a = agents[nj][ni];
+      a.energy = Math.random() * 0.3;
+      a.memory *= 0.3;
+      a.taskLoad = 0;
+    }
+  }
+  emitRipple(cx, cy, -1, 0.8);
+}
+
+function resetSim() {
+  initSim();
+  document.getElementById('memEntries').innerHTML = '';
+  document.getElementById('taskEntries').innerHTML = '';
+}
+
+function togglePause() {
+  paused = !paused;
+  document.getElementById('btnPause').textContent = paused ? 'RESUME' : 'PAUSE';
+  document.getElementById('btnPause').classList.toggle('active', paused);
+}
+
+// Click to spawn task
+canvas.addEventListener('click', (e) => {
+  const i = Math.floor(e.clientX / CELL);
+  const j = Math.floor(e.clientY / CELL);
+  spawnTask(i, j);
+});
+
+// ── MAIN LOOP ─────────────────────────────────────────────────────
+function loop(ts) {
+  requestAnimationFrame(loop);
+  if (paused) return;
+
+  // FPS
+  frameCount++;
+  if (ts - fpsTimer > 600) {
+    lastFPS = Math.round(frameCount * 1000 / (ts - fpsTimer));
+    document.getElementById('statFPS').textContent = lastFPS;
+    frameCount = 0;
+    fpsTimer = ts;
+  }
+
+  t++;
+
+  // Auto spawn
+  if (autoSpawn) {
+    autoTimer++;
+    const interval = tasks.length < 3 ? 80 : tasks.length < 6 ? 140 : 220;
+    if (autoTimer >= interval) {
+      spawnTask();
+      autoTimer = 0;
+    }
+  }
+
+  updateTasks();
+  updateRoles();
+  updateAgents();
+  render();
+
+  if (t % 10 === 0) updateHUD();
+}
+
+window.addEventListener('resize', resize);
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
