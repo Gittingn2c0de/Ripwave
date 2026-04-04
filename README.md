@@ -105,8 +105,7 @@ What people have built or are building:
 
 - **Ambient compute display** — real task processing visualized as a living field
 - **LLM interface layer** — model diffusion steps mapped to agent field behavior
-- **Generative visuals** — input data transformed through agent rules
-- **Verification systems** — labor/task verification with spatial memory (see Veritas Protocol)
+- **Generative visuals** — input data transformed through agent rules)
 - **Live music visualization** — audio streams as typed task input
 
 If you're building something, open an issue and we'll add it here.
